@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const socketHandler = require('./socket/socketHandler'); 
 
 // Load env vars
 dotenv.config();
@@ -14,6 +15,14 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
+const io = new Server(server, {
+    cors: {
+        origin: "*", // Allow Vite frontend
+        methods: ["GET", "POST", "PUT", "DELETE"]
+    }
+});
+
+app.set('socketio', io);
 // Middleware
 app.use(cors({ origin: '*', credentials: true })); // Allow all origins for dev
 app.use(express.json());
@@ -22,17 +31,10 @@ app.use(express.json());
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/boards', require('./routes/boards'));
 app.use('/api/tasks', require('./routes/tasks'));
+app.use('/api/activity', require('./routes/activity'));
 
 // Socket.io Setup
-const io = new Server(server, {
-    cors: {
-        origin: "*", // Allow Vite frontend
-        methods: ["GET", "POST", "PUT", "DELETE"]
-    }
-});
-
-// Make io accessible in routes
-app.set('socketio', io);
+socketHandler(io);
 
 io.on('connection', (socket) => {
     console.log(`Socket Connected: ${socket.id}`);
@@ -51,6 +53,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('Socket Disconnected');
     });
+    
 });
 
 const PORT = process.env.PORT || 5000;

@@ -1,34 +1,41 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/authMiddleware');
+const auth = require('../middleware/auth');
 const Task = require('../models/Task');
+const Activity = require('../models/Activity');
 
-// Get Tasks for a Board
+// Get Tasks (with optional Search)
 router.get('/:boardId', auth, async (req, res) => {
     try {
-        const tasks = await Task.find({ boardId: req.params.boardId }).sort({ position: 1 });
+        const { search } = req.query;
+        let query = { boardId: req.params.boardId };
+        
+        if (search) {
+            query.title = { $regex: search, $options: 'i' }; // Case-insensitive search
+        }
+
+        const tasks = await Task.find(query).sort({ position: 1 });
         res.json(tasks);
     } catch (err) {
         res.status(500).send('Server Error');
     }
 });
 
-// Create Task
+// Create Task + Log Activity
 router.post('/', auth, async (req, res) => {
     try {
         const { title, boardId, listId } = req.body;
-        // Find highest position to add to bottom
-        const count = await Task.countDocuments({ listId });
-        
-        const newTask = new Task({
-            title,
-            boardId,
-            listId,
-            position: count > 0 ? count : 0
-        });
+        const newTask = new Task({ title, boardId, listId });
         const task = await newTask.save();
-        
-        // Emit Socket Event
+
+        // Log Activity
+        await Activity.create({
+            userId: req.user.id,
+            boardId,
+            action: 'created',
+            details: `Created task "${title}"`
+        });
+
         const io = req.app.get('socketio');
         io.to(boardId).emit('task_created', task);
 
@@ -38,24 +45,30 @@ router.post('/', auth, async (req, res) => {
     }
 });
 
-// Update Task (Move / Edit)
+// Update Task (Move) + Log Activity
 router.put('/:id', auth, async (req, res) => {
     try {
-        const { title, description, listId, position, boardId } = req.body;
+        const { title, listId, position, boardId } = req.body;
         let task = await Task.findById(req.params.id);
         if (!task) return res.status(404).json({ msg: 'Task not found' });
 
-        task.title = title || task.title;
-        task.description = description || task.description;
+        const oldListId = task.listId;
         task.listId = listId || task.listId;
         task.position = position !== undefined ? position : task.position;
-
         await task.save();
 
-        // Emit Socket Event for Real-time Update
+        // Log only if moved lists
+        if (listId && oldListId.toString() !== listId.toString()) {
+             await Activity.create({
+                userId: req.user.id,
+                boardId,
+                action: 'moved',
+                details: `Moved task "${task.title}"`
+            });
+        }
+
         const io = req.app.get('socketio');
         io.to(boardId).emit('task_updated', task);
-
         res.json(task);
     } catch (err) {
         res.status(500).send('Server Error');
@@ -66,15 +79,22 @@ router.put('/:id', auth, async (req, res) => {
 router.delete('/:id', auth, async (req, res) => {
     try {
         const task = await Task.findById(req.params.id);
-        if (!task) return res.status(404).json({ msg: 'Task not found' });
+        if (!task) return res.status(404).json({ msg: 'Not found' });
         
         const boardId = task.boardId;
+        const title = task.title;
         await task.deleteOne();
+
+        await Activity.create({
+            userId: req.user.id,
+            boardId,
+            action: 'deleted',
+            details: `Deleted task "${title}"`
+        });
 
         const io = req.app.get('socketio');
         io.to(boardId.toString()).emit('task_deleted', req.params.id);
-
-        res.json({ msg: 'Task removed' });
+        res.json({ msg: 'Deleted' });
     } catch (err) {
         res.status(500).send('Server Error');
     }
