@@ -1,70 +1,78 @@
-/* eslint-disable no-unused-vars */
-import { createContext, useState, useContext } from 'react';
-import instance from '../api/axios';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useState, useEffect } from 'react';
+import axios from '../api/axios';
 
 const AuthContext = createContext();
 
+export const useAuth = () => useContext(AuthContext);
+
 export const AuthProvider = ({ children }) => {
-    // 1. Lazy Initialization: Check localStorage immediately
-    // This avoids the "useEffect" synchronous error and sets the user instantly.
-    const [user, setUser] = useState(() => {
-        try {
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    // 1. Check if user is logged in on Page Load
+    useEffect(() => {
+        const loadUser = async () => {
             const token = localStorage.getItem('token');
-            return token ? { token } : null;
-        } catch (error) {
-            return null;
-        }
-    });
+            
+            if (!token) {
+                setLoading(false);
+                return;
+            }
 
-    // 2. Loading is false because we checked the token in the lines above
-    const [loading, setLoading] = useState(false);
+            try {
+                // Set default header for all axios requests
+                axios.defaults.headers.common['x-auth-token'] = token;
+                
+                // FETCH USER FROM DATABASE
+                const res = await axios.get('/auth/user');
+                setUser(res.data);
+            } catch (err) {
+                console.error("Failed to load user", err);
+                localStorage.removeItem('token');
+                delete axios.defaults.headers.common['x-auth-token'];
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    const register = async (username, email, password) => {
-        console.log("testing");
-        setLoading(true);
-        try {
-            const res = await instance.post('/auth/register', { username, email, password });
-            console.log(res);
-            localStorage.setItem('token', res.data.token);
-            setUser(res.data.user);
-            return res.data;
-        } catch (error) {
-            console.error("Register Error:", error);
-            console.log("testing");
-            throw error;
-        } finally {
-            setLoading(false);
-        }
-    };
+        loadUser();
+    }, []);
 
+    // 2. Login Function
     const login = async (email, password) => {
-        setLoading(true);
-        try {
-            const res = await instance.post('/auth/login', { email, password });
-            localStorage.setItem('token', res.data.token);
-            setUser(res.data.user);
-            return res.data;
-        } catch (error) {
-            console.error("Login Error:", error);
-            throw error;
-        } finally {
-            setLoading(false);
-        }
+        const res = await axios.post('/auth/login', { email, password });
+        
+        // Save token
+        localStorage.setItem('token', res.data.token);
+        axios.defaults.headers.common['x-auth-token'] = res.data.token;
+        
+        // Fetch user immediately after login
+        const userRes = await axios.get('/auth/user');
+        setUser(userRes.data);
     };
 
+    // 3. Register Function
+    const register = async (username, email, password) => {
+        const res = await axios.post('/auth/register', { username, email, password });
+        
+        localStorage.setItem('token', res.data.token);
+        axios.defaults.headers.common['x-auth-token'] = res.data.token;
+
+        const userRes = await axios.get('/auth/user');
+        setUser(userRes.data);
+    };
+
+    // 4. Logout Function
     const logout = () => {
         localStorage.removeItem('token');
+        delete axios.defaults.headers.common['x-auth-token'];
         setUser(null);
     };
 
     return (
-        <AuthContext.Provider value={{ user, register, login, logout, loading }}>
-            {children}
+        <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+            {!loading && children}
         </AuthContext.Provider>
     );
-};
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const useAuth = () => {
-    return useContext(AuthContext);
 };

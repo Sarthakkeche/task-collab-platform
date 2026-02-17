@@ -1,1 +1,8 @@
 @import "tailwindcss";
+[data-rbd-draggable-context-id] {
+  position: relative !important;
+}
+
+[data-rbd-drag-handle-context-id] {
+  cursor: grab;
+}

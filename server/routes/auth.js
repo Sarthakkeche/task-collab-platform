@@ -2,70 +2,64 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const auth = require('../middleware/auth');
 const User = require('../models/User');
-// Register Route
-// Register Route
-router.post('/register', async (req, res) => {
-    console.log("Register Request Received:", req.body); // Check if data arrives
 
+// 1. REGISTER USER
+router.post('/register', async (req, res) => {
     const { username, email, password } = req.body;
     try {
-        // 1. Check if user exists
         let user = await User.findOne({ email });
-        if (user) {
-            console.log("User already exists");
-            return res.status(400).json({ msg: 'User already exists' });
-        }
+        if (user) return res.status(400).json({ msg: 'User already exists' });
 
-        // 2. Create new user
         user = new User({ username, email, password });
-        
-        // 3. Hash password (handled by User.js pre-save hook usually)
-        // If you are hashing here manually, ensure it's correct. 
-        // For now, we assume the model handles it or we save plain text (bad practice but good for testing crash)
-        
+
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(password, salt);
+
         await user.save();
-        console.log("User Saved to DB");
 
-        // 4. Generate Token
         const payload = { user: { id: user.id } };
-        
-        // CHECK IF SECRET EXISTS
-        if (!process.env.JWT_SECRET) {
-            throw new Error("Missing JWT_SECRET in .env file");
-        }
 
-        jwt.sign(
-            payload, 
-            process.env.JWT_SECRET, 
-            { expiresIn: '1d' }, 
-            (err, token) => {
-                if (err) throw err;
-                res.json({ token, user: { id: user.id, username: user.username, email: user.email } });
-            }
-        );
+        jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 360000 }, (err, token) => {
+            if (err) throw err;
+            res.json({ token });
+        });
     } catch (err) {
-        // THIS IS THE IMPORTANT PART
-        console.error("SERVER CRASH ERROR:", err.message);
-        res.status(500).send('Server Error: ' + err.message);
+        console.error(err.message);
+        res.status(500).send('Server Error');
     }
 });
-// Login
+
+// 2. LOGIN USER
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     try {
-        const user = await User.findOne({ email });
+        let user = await User.findOne({ email });
         if (!user) return res.status(400).json({ msg: 'Invalid Credentials' });
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ msg: 'Invalid Credentials' });
 
         const payload = { user: { id: user.id } };
-        jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' }, (err, token) => {
+
+        jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 360000 }, (err, token) => {
             if (err) throw err;
-            res.json({ token, user: { id: user.id, username: user.username, email: user.email } });
+            res.json({ token });
         });
     } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// 3. GET CURRENT USER (This is the one you were missing!)
+router.get('/user', auth, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password');
+        res.json(user);
+    } catch (err) {
+        console.error(err.message);
         res.status(500).send('Server Error');
     }
 });
