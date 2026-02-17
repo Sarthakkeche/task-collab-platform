@@ -15,7 +15,7 @@ export const SocketProvider = ({ children }) => {
 
     useEffect(() => {
         // 1. Establish the connection to the backend
-        const newSocket = io('http://localhost:5000'); // Check your port!
+const newSocket = io(import.meta.env.VITE_SOCKET_URL);
         
         setSocket(newSocket);
 
