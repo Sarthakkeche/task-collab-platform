@@ -1,10 +1,12 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useState } from 'react';
 import axios from '../api/axios';
 import { Link } from 'react-router-dom';
-import {  AnimatePresence } from 'framer-motion';
-// eslint-disable-next-line no-unused-vars
-import {  motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Plus, Layout, Search, ArrowRight, Loader2 } from 'lucide-react';
+
+// 1. IMPORT NAVBAR
+import Navbar from '../components/Layout/Navbar';
 
 const Dashboard = () => {
     const [boards, setBoards] = useState([]);
@@ -16,7 +18,6 @@ const Dashboard = () => {
         const fetchBoards = async () => {
             try {
                 const res = await axios.get('/boards');
-                // Handle different response structures
                 const boardData = Array.isArray(res.data) ? res.data : (res.data.boards || []);
                 setBoards(boardData);
             } catch (err) {
@@ -44,7 +45,6 @@ const Dashboard = () => {
         b.title?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    // Animation Variants
     const containerVariants = {
         hidden: { opacity: 0 },
         visible: { 
@@ -59,15 +59,18 @@ const Dashboard = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#0f172a] text-white font-sans selection:bg-indigo-500 selection:text-white relative overflow-hidden">
+        <div className="min-h-screen bg-[#0f172a] text-white font-sans selection:bg-indigo-500 selection:text-white relative overflow-hidden flex flex-col">
             
+            {/* 2. ADD NAVBAR HERE */}
+            <Navbar />
+
             {/* Background Effects */}
-            <div className="fixed inset-0 pointer-events-none">
+            <div className="fixed inset-0 pointer-events-none z-0">
                 <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-600/30 rounded-full blur-3xl animate-pulse" />
                 <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-600/20 rounded-full blur-3xl animate-pulse delay-1000" />
             </div>
 
-            <div className="relative max-w-6xl mx-auto px-6 py-12 z-10">
+            <div className="relative max-w-6xl mx-auto px-6 py-12 z-10 w-full flex-1">
                 
                 {/* Header Section */}
                 <motion.div 
