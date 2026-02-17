@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import axios from '../api/axios';
-import { Search, Plus } from 'lucide-react';
 import TaskCard from '../components/Board/TaskCard';
 import Navbar from '../components/Layout/Navbar';
 import { useSocket } from '../context/SocketContext';
+import { Search, Plus } from 'lucide-react';
 
 const BoardView = () => {
     const { id } = useParams();
@@ -52,18 +52,18 @@ const BoardView = () => {
         socket.emit('join_board', id);
 
         const handleTaskUpdate = (updatedTask) => {
-             setTasks(prev => prev.map(t => t._id === updatedTask._id ? updatedTask : t));
-             fetchActivities();
+            setTasks(prev => prev.map(t => t._id === updatedTask._id ? updatedTask : t));
+            fetchActivities();
         };
 
         const handleTaskCreate = (newTask) => {
-             setTasks(prev => [...prev, newTask]);
-             fetchActivities();
+            setTasks(prev => [...prev, newTask]);
+            fetchActivities();
         };
 
         const handleTaskDelete = (taskId) => {
-             setTasks(prev => prev.filter(t => t._id !== taskId));
-             fetchActivities();
+            setTasks(prev => prev.filter(t => t._id !== taskId));
+            fetchActivities();
         };
 
         socket.on('task_updated', handleTaskUpdate);
@@ -83,7 +83,6 @@ const BoardView = () => {
         const { draggableId, destination } = result;
         const updatedTasks = [...tasks];
         const taskIndex = updatedTasks.findIndex(t => t._id === draggableId);
-        
         if (taskIndex === -1) return;
 
         updatedTasks[taskIndex].listId = destination.droppableId;
@@ -123,59 +122,80 @@ const BoardView = () => {
     }
 
     return (
-        <div className="h-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
+        <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
             <Navbar />
 
             {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 backdrop-blur-sm shrink-0">
-                <h1 className="text-xl font-semibold tracking-tight text-white">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-800 
+                            flex flex-col sm:flex-row gap-3 sm:gap-0 
+                            sm:justify-between sm:items-center 
+                            bg-slate-900/50 backdrop-blur-sm">
+
+                <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-white">
                     {board.title}
                 </h1>
 
-                <div className="relative group">
-                    <Search className="absolute left-3 top-2.5 text-slate-500 w-4 h-4 group-focus-within:text-indigo-400 transition-colors" />
+                <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-2.5 text-slate-500 w-4 h-4" />
                     <input
                         type="text"
                         placeholder="Search tasks..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="bg-slate-800 border border-slate-700 rounded-lg py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all w-64 text-slate-200 placeholder:text-slate-500"
+                        className="w-full bg-slate-800 border border-slate-700 
+                                   rounded-lg py-2 pl-9 pr-4 text-sm 
+                                   focus:outline-none focus:ring-2 
+                                   focus:ring-indigo-500/50 
+                                   focus:border-indigo-500 
+                                   text-slate-200 placeholder:text-slate-500"
                     />
                 </div>
             </div>
 
             <div className="flex flex-1 overflow-hidden">
-                {/* Board Section - CHANGED: No scroll, fits container */}
-                <div className="flex-1 p-6 overflow-hidden h-full">
+
+                {/* Board Section */}
+                <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
                     <DragDropContext onDragEnd={onDragEnd}>
-                        {/* CHANGED: Grid layout instead of Flex to force equal widths */}
-                        <div className="grid grid-cols-3 gap-6 h-full w-full">
+                        <div className="grid 
+                                        grid-cols-1 
+                                        sm:grid-cols-2 
+                                        lg:grid-cols-3 
+                                        gap-4 sm:gap-6">
+
                             {board.lists.map(list => (
                                 <Droppable key={list._id} droppableId={list._id}>
                                     {(provided, snapshot) => (
                                         <div
                                             ref={provided.innerRef}
                                             {...provided.droppableProps}
-                                            // CHANGED: Removed fixed widths (w-80), added w-full min-w-0
                                             className={`
-                                                bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-sm w-full min-w-0 flex flex-col max-h-full
+                                                bg-slate-900/80 
+                                                border border-slate-800 
+                                                rounded-xl p-4 shadow-sm 
+                                                flex flex-col 
                                                 transition-colors duration-200
-                                                ${snapshot.isDraggingOver ? 'bg-slate-800/80 border-indigo-500/30 ring-1 ring-indigo-500/30' : ''}
+                                                ${snapshot.isDraggingOver
+                                                    ? 'bg-slate-800/80 border-indigo-500/30 ring-1 ring-indigo-500/30'
+                                                    : ''}
                                             `}
                                         >
-                                            <div className="flex justify-between items-center mb-4 px-1 shrink-0">
-                                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider truncate">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                                                     {list.title}
                                                 </h3>
+
                                                 <button
                                                     onClick={() => handleAddTask(list._id)}
-                                                    className="text-slate-500 hover:text-indigo-400 hover:bg-indigo-400/10 p-1 rounded transition-all shrink-0"
+                                                    className="text-slate-500 hover:text-indigo-400 
+                                                               hover:bg-indigo-400/10 
+                                                               p-1 rounded transition-all"
                                                 >
                                                     <Plus size={18} />
                                                 </button>
                                             </div>
 
-                                            <div className="space-y-3 overflow-y-auto pr-1 custom-scrollbar flex-1 min-h-0">
+                                            <div className="space-y-3">
                                                 {tasks
                                                     .filter(t => t.listId === list._id)
                                                     .map((task, index) => (
@@ -185,19 +205,23 @@ const BoardView = () => {
                                                             index={index}
                                                         />
                                                     ))}
+
                                                 {provided.placeholder}
                                             </div>
                                         </div>
                                     )}
                                 </Droppable>
                             ))}
+
                         </div>
                     </DragDropContext>
                 </div>
 
                 {/* Activity Sidebar */}
-                <div className="w-80 border-l border-slate-800 bg-slate-950/50 hidden lg:flex flex-col shrink-0">
-                    <div className="p-6 border-b border-slate-800/50 shrink-0">
+                <div className="w-80 border-l border-slate-800 
+                                bg-slate-950/50 hidden lg:flex flex-col">
+
+                    <div className="p-6 border-b border-slate-800/50">
                         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                             Activity Log
                         </h3>
@@ -214,14 +238,18 @@ const BoardView = () => {
                                     <span className="ml-1 text-slate-300">{act.details}</span>
                                 </div>
                                 <div className="text-xs text-slate-600 mt-1.5">
-                                    {new Date(act.createdAt).toLocaleString([], { 
-                                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+                                    {new Date(act.createdAt).toLocaleString([], {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
                                     })}
                                 </div>
                             </li>
                         ))}
                     </ul>
                 </div>
+
             </div>
         </div>
     );
